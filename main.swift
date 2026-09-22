@@ -101,9 +101,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             NSLog("ds5batt: контроллер подключён")
             app.refresh()
         }
-        let onRemove: IOHIDDeviceCallback = { ctx, _, _, _ in
+        let onRemove: IOHIDDeviceCallback = { ctx, _, _, device in
             guard let ctx = ctx else { return }
             let app = Unmanaged<AppDelegate>.fromOpaque(ctx).takeUnretainedValue()
+            // дребезг переключения USB⇄BT: ушёл один девайс, а в менеджере жив другой
+            // (напр. onAdd USB уже успел прийти, затем onRemove старого BT) —
+            // перецепляемся на оставшийся, иначе свет замолкает при живом чтении
+            if let set = IOHIDManagerCopyDevices(app.mgr) as? Set<IOHIDDevice>,
+               let d = set.first(where: { $0 != device }) {
+                if d != app.dev {
+                    IOHIDDeviceOpen(d, 0)
+                    app.dev = d
+                    app.attachReports(d)
+                    app.appliedZone = nil   // выставим индикацию заново
+                }
+                app.refresh()
+                return
+            }
             app.dev = nil
             app.lastPct = -1
             app.appliedZone = nil
@@ -131,8 +145,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // сторонних (игры через GCController красят lightbar под фракцию); анимации
         // (пульс, окна зарядки) уже пишутся своим таймером каждые 0.12с
         reaffirmTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
-            self?.reaffirmColor()
+            guard let self = self else { return }
+            if self.dev == nil { self.reattachIfPossible() }
+            else { self.reaffirmColor() }
         }
+    }
+
+    // ленивое восстановление после race: onRemove мог обнулить dev, когда новый
+    // девайс ещё не появился в снапшоте менеджера, а повторного onAdd не будет —
+    // раз в секунду пробуем перецепиться на живой девайс из сета
+    private func reattachIfPossible() {
+        guard dev == nil, let set = IOHIDManagerCopyDevices(mgr) as? Set<IOHIDDevice>, let d = set.first else { return }
+        IOHIDDeviceOpen(d, 0)
+        dev = d
+        attachReports(d)
+        appliedZone = nil   // выставим индикацию заново
+        refresh()
     }
 
     private func reaffirmColor() {
