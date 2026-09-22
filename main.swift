@@ -44,6 +44,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var appliedZone: LedSpec?
     private var appliedPlugged = false
     private var ledTimer: Timer?
+    private var reaffirmTimer: Timer?
     private var outSeq: UInt8 = 0
 
     // демо-прогон (для записи видео)
@@ -125,6 +126,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         refresh()
 
         timer = Timer.scheduledTimer(withTimeInterval: 30, repeats: true) { [weak self] _ in self?.refresh() }
+
+        // агрессивное пере-утверждение цвета: раз в 1с, чтобы перебивать редкие записи
+        // сторонних (игры через GCController красят lightbar под фракцию); анимации
+        // (пульс, окна зарядки) уже пишутся своим таймером каждые 0.12с
+        reaffirmTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
+            self?.reaffirmColor()
+        }
+    }
+
+    private func reaffirmColor() {
+        guard !demoRunning, dev != nil, colorsEnabled, let zone = appliedZone else { return }
+        if ledTimer != nil { return }   // идёт анимация — она уже пишет постоянно
+        sendLightbar(zone.r, zone.g, zone.b, scale: 1)
     }
 
     private var colorsEnabled: Bool {
@@ -174,12 +188,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     @objc func refresh() {
         if let bat = readBattery() { onBattery(pct: bat.pct, state: bat.state) }
         else if dev == nil { lastPct = -1; updateTitle(nil) }
-        // GET не прошёл, но контроллер на связи (USB-стрим обновит сам) — держим последний статус
-
-        // пере-утверждаем статичный цвет: если подсветку перебила другая программа — вернём свою
-        if !demoRunning, let zone = appliedZone, !appliedPlugged, !zone.pulsing, colorsEnabled {
-            sendLightbar(zone.r, zone.g, zone.b, scale: 1)
-        }
+        // GET не прошёл, но контроллер на связи (USB-стрим обновит сам) — держим последний статус;
+        // пере-утверждение цвета переехало в отдельный 1с-таймер (reaffirmColor)
     }
 
     private func onBattery(pct: Int, state: Int) {
