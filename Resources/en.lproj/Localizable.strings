@@ -1,0 +1,11 @@
+/* DualSense Battery — English */
+"colors" = "Lightbar colors";
+"dots" = "Charge level dots";
+"autostart" = "Launch at login";
+"demo" = "Demo show";
+"refresh" = "Refresh";
+"quit" = "Quit";
+"not_connected" = "DualSense — not connected";
+"discharging" = "discharging";
+"charging" = "charging";
+"status_format" = "DualSense — %d%%, %@";

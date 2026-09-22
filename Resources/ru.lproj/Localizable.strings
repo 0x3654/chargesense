@@ -1,0 +1,11 @@
+/* DualSense Battery — русский */
+"colors" = "Подсветка цветами";
+"dots" = "Шкала заряда точками";
+"autostart" = "Запускаться при входе";
+"demo" = "Демо подсветки";
+"refresh" = "Обновить";
+"quit" = "Выйти";
+"not_connected" = "DualSense — не подключён";
+"discharging" = "разряжается";
+"charging" = "заряжается";
+"status_format" = "DualSense — %d%%, %@";
